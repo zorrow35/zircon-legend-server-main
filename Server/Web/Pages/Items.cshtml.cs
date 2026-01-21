@@ -541,6 +541,50 @@ namespace Server.Web.Pages
             }
         }
 
+        // 获取物品的掉落来源（即哪些怪物会掉落该物品）
+        public IActionResult OnGetItemDropSources(int itemIndex)
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var item = SEnvir.ItemInfoList?.Binding?.FirstOrDefault(i => i.Index == itemIndex);
+                if (item == null)
+                {
+                    return new JsonResult(new { success = false, message = "物品不存在" });
+                }
+
+                // 查找所有掉落该物品的 DropInfo
+                var dropSources = SEnvir.DropInfoList?.Binding
+                    ?.Where(d => d.Item?.Index == itemIndex)
+                    ?.Select(d => new DropSourceViewModel
+                    {
+                        DropIndex = d.Index,
+                        MonsterIndex = d.Monster?.Index ?? 0,
+                        MonsterName = d.Monster?.MonsterName ?? "Unknown",
+                        MonsterLevel = d.Monster?.Level ?? 0,
+                        Chance = d.Chance,
+                        Amount = d.Amount,
+                        DropSet = d.DropSet,
+                        PartOnly = d.PartOnly,
+                        EasterEvent = d.EasterEvent
+                    })
+                    ?.OrderByDescending(d => d.Chance)
+                    ?.ThenBy(d => d.MonsterName)
+                    ?.ToList()
+                    ?? new List<DropSourceViewModel>();
+
+                return new JsonResult(new { success = true, data = dropSources });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
         private bool HasPermission(AccountIdentity required)
         {
             var permissionClaim = User.FindFirst("Permission")?.Value;
@@ -608,5 +652,21 @@ namespace Server.Web.Pages
     {
         public int StatType { get; set; }
         public int Amount { get; set; }
+    }
+
+    /// <summary>
+    /// 物品掉落来源视图模型
+    /// </summary>
+    public class DropSourceViewModel
+    {
+        public int DropIndex { get; set; }
+        public int MonsterIndex { get; set; }
+        public string MonsterName { get; set; } = "";
+        public int MonsterLevel { get; set; }
+        public int Chance { get; set; }
+        public int Amount { get; set; }
+        public int DropSet { get; set; }
+        public bool PartOnly { get; set; }
+        public bool EasterEvent { get; set; }
     }
 }

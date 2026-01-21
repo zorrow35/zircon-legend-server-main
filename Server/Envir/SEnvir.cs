@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
@@ -638,6 +638,7 @@ namespace Server.Envir
         public static DBCollection<UserMagic> UserMagicList;
         public static DBCollection<BuffInfo> BuffInfoList;
         public static DBCollection<MonsterInfo> MonsterInfoList;    
+        public static DBCollection<DropInfo> DropInfoList;    
         public static DBCollection<SetInfo> SetInfoList;
         public static DBCollection<AuctionInfo> AuctionInfoList;
         public static DBCollection<MailInfo> MailInfoList;
@@ -868,6 +869,7 @@ namespace Server.Envir
             SafeZoneInfoList = Session.GetCollection<SafeZoneInfo>();
             ItemInfoList = Session.GetCollection<ItemInfo>();
             MonsterInfoList = Session.GetCollection<MonsterInfo>();
+            DropInfoList = Session.GetCollection<DropInfo>();
             RespawnInfoList = Session.GetCollection<RespawnInfo>();
             MagicInfoList = Session.GetCollection<MagicInfo>();
 
@@ -973,7 +975,7 @@ namespace Server.Envir
                 BossList.Add(monster);
 
             }
-
+            
             Messages = new ConcurrentQueue<IPNMessage>();
 
             PaymentList.Clear();
@@ -1394,6 +1396,7 @@ namespace Server.Envir
             SafeZoneInfoList = null;
             ItemInfoList = null;
             MonsterInfoList = null;
+            DropInfoList = null;
             RespawnInfoList = null;
             MagicInfoList = null;
 

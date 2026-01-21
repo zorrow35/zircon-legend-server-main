@@ -150,6 +150,11 @@
                                                 title="编辑地图">
                                             <i class="bi bi-pencil"></i>
                                         </button>
+                                        <button type="button" class="btn btn-outline-info"
+                                                onclick="manageMapMonsters(@map.Index, '@map.Description')"
+                                                title="管理怪物">
+                                            <i class="bi bi-people"></i>
+                                        </button>
                                         <button type="button" class="btn btn-outline-success"
                                                 onclick="fillTeleport(@map.Index, '@map.Description')"
                                                 title="传送到此地图">
@@ -341,6 +346,186 @@
     </div>
 </div>
 
+<!-- Map Monsters Management Modal -->
+<div class="modal fade" id="mapMonstersModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="mapMonstersModalTitle"><i class="bi bi-people"></i> 地图怪物管理</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 地图区域选择 -->
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <i class="bi bi-layers"></i> 选择区域
+                    </div>
+                    <div class="card-body py-2">
+                        <select class="form-select" id="regionSelect" onchange="loadRegionMonsters()">
+                            <option value="">-- 请选择区域 --</option>
+                            <!-- 动态填充 -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 当前区域信息 -->
+                <div class="alert alert-light border mb-3" id="currentRegionInfo" style="display: none;">
+                    <h6 class="mb-2"><i class="bi bi-info-circle"></i> 当前区域: <strong id="currentRegionName"></strong></h6>
+                    <div id="monsterStats">
+                        <span class="badge bg-primary">怪物配置: <span id="totalMonsters">0</span> 个</span>
+                    </div>
+                </div>
+
+                <!-- 添加怪物表单 -->
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <i class="bi bi-plus-circle"></i> 添加怪物
+                    </div>
+                    <div class="card-body py-2">
+                        <form method="post" id="addMonsterForm" class="row g-2 align-items-end">
+                            <input type="hidden" name="regionIndex" id="addRegionIndex">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">怪物</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="monsterSearchInput" placeholder="搜索怪物...">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="searchMonsters()">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <select class="form-select form-select-sm mt-1" name="monsterIndex" id="monsterSelect">
+                                    <option value="">-- 选择怪物 --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">延迟(秒)</label>
+                                <input type="number" class="form-control form-control-sm" name="delay" value="60" min="1" max="9999999">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">数量</label>
+                                <input type="number" class="form-control form-control-sm" name="count" value="1" min="1" max="100">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">掉落组</label>
+                                <input type="number" class="form-control form-control-sm" name="dropSet" value="0" min="0" max="99">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">选项</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="eventSpawn" id="eventSpawnCheck">
+                                        <label class="form-check-label small" for="eventSpawnCheck">活动怪</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="announce" id="announceCheck">
+                                        <label class="form-check-label small" for="announceCheck">公告</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 怪物列表 -->
+                <div class="card">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-list"></i> 怪物列表</span>
+                        <span class="badge bg-secondary" id="monsterCountBadge">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>怪物</th>
+                                        <th>等级</th>
+                                        <th>延迟</th>
+                                        <th>数量</th>
+                                        <th>掉落组</th>
+                                        <th>标记</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="monstersTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <i class="bi bi-inbox display-6"></i>
+                                            <p class="mb-0 mt-2">请先选择区域</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto"><i class="bi bi-exclamation-triangle"></i> SuperAdmin 可修改，Admin 仅查看</span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Monster Modal -->
+<div class="modal fade" id="editMonsterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 编辑怪物配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="editMonsterForm">
+                <div class="modal-body">
+                    <input type="hidden" name="respawnIndex" id="editRespawnIndex">
+                    <input type="hidden" name="handler" value="UpdateMonster">
+
+                    <div class="mb-3">
+                        <label class="form-label">怪物名称</label>
+                        <input type="text" class="form-control" id="editMonsterName" readonly>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">刷新延迟(秒)</label>
+                            <input type="number" class="form-control" name="delay" id="editDelay" min="1" max="9999999">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">同屏数量</label>
+                            <input type="number" class="form-control" name="count" id="editCount" min="1" max="100">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">掉落组</label>
+                        <input type="number" class="form-control" name="dropSet" id="editDropSet" min="0" max="99">
+                        <small class="text-muted">0表示不使用掉落组</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eventSpawn" id="editEventSpawn">
+                            <label class="form-check-label" for="editEventSpawn">活动怪物（仅在活动期间刷新）</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="announce" id="editAnnounce">
+                            <label class="form-check-label" for="editAnnounce">刷新时公告</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 var isCreateMode = false;
@@ -471,6 +656,257 @@ function editMap(mapIndex) {
         .catch(error => {
             ToastManager.error('请求失败: ' + error.message);
         });
+}
+
+// ==================== 地图怪物管理功能 ====================
+
+let currentMapIndex = 0;
+let currentMapName = "";
+
+// 管理地图怪物
+function manageMapMonsters(mapIndex, mapName) {
+    currentMapIndex = mapIndex;
+    currentMapName = mapName;
+
+    document.getElementById('mapMonstersModalTitle').textContent = `地图怪物管理: ${mapName}`;
+    document.getElementById('regionSelect').innerHTML = '<option value="">-- 请选择区域 --</option>';
+    document.getElementById('monstersTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mb-0 mt-2">加载区域列表中...</p></td></tr>';
+    document.getElementById('currentRegionInfo').style.display = 'none';
+
+    new bootstrap.Modal(document.getElementById('mapMonstersModal')).show();
+
+    // 加载地图区域列表
+    fetch(`/Maps?handler=MapRegions&mapIndex=${mapIndex}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const select = document.getElementById('regionSelect');
+                select.innerHTML = '<option value="">-- 请选择区域 --</option>';
+                result.data.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region.regionIndex;
+                    option.textContent = `${region.description} (大小: ${region.size})`;
+                    select.appendChild(option);
+                });
+
+                document.getElementById('monstersTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-inbox display-6"></i><p class="mb-0 mt-2">请选择区域查看怪物列表</p></td></tr>';
+            } else {
+                document.getElementById('monstersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">${escapeHtml(result.message)}</p></td></tr>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('monstersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">请求失败: ${escapeHtml(error.message)}</p></td></tr>`;
+        });
+}
+
+// 加载区域怪物列表
+function loadRegionMonsters() {
+    const regionIndex = document.getElementById('regionSelect').value;
+    if (!regionIndex) {
+        document.getElementById('monstersTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-inbox display-6"></i><p class="mb-0 mt-2">请选择区域查看怪物列表</p></td></tr>';
+        document.getElementById('currentRegionInfo').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('addRegionIndex').value = regionIndex;
+    document.getElementById('monstersTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mb-0 mt-2">加载怪物列表中...</p></td></tr>';
+
+    fetch(`/Maps?handler=RegionMonsters&regionIndex=${regionIndex}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                document.getElementById('currentRegionName').textContent = result.regionName;
+                document.getElementById('currentRegionInfo').style.display = 'block';
+                renderMonsterTable(result.data);
+            } else {
+                document.getElementById('monstersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">${escapeHtml(result.message)}</p></td></tr>`;
+                document.getElementById('currentRegionInfo').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            document.getElementById('monstersTableBody').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">请求失败: ${escapeHtml(error.message)}</p></td></tr>`;
+            document.getElementById('currentRegionInfo').style.display = 'none';
+        });
+}
+
+// 渲染怪物表格
+function renderMonsterTable(monsters) {
+    const tbody = document.getElementById('monstersTableBody');
+
+    if (!monsters || monsters.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-inbox display-6"></i><p class="mb-0 mt-2">该区域没有怪物配置</p></td></tr>';
+        document.getElementById('totalMonsters').textContent = '0';
+        document.getElementById('monsterCountBadge').textContent = '0';
+        return;
+    }
+
+    tbody.innerHTML = monsters.map(m => {
+        const eventBadge = m.eventSpawn ? '<span class="badge bg-warning text-dark">活动</span>' : '';
+        const announceBadge = m.announce ? '<span class="badge bg-info">公告</span>' : '';
+
+        return `<tr data-respawn-index="${m.respawnIndex}">
+                <td>
+                    <strong>${escapeHtml(m.monsterName)}</strong>
+                </td>
+                <td>${m.monsterLevel}</td>
+                <td>${m.delay}秒</td>
+                <td>${m.count}</td>
+                <td>${m.dropSet > 0 ? `<span class="badge bg-secondary">${m.dropSet}</span>` : '-'}</td>
+                <td>${eventBadge} ${announceBadge}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-warning" onclick="editMonster(${m.respawnIndex})" title="编辑">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteMonster(${m.respawnIndex})" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+
+    document.getElementById('totalMonsters').textContent = monsters.length;
+    document.getElementById('monsterCountBadge').textContent = monsters.length;
+}
+
+// 搜索怪物
+function searchMonsters() {
+    const keyword = document.getElementById('monsterSearchInput').value.trim();
+    fetch(`/Maps?handler=MonstersList&keyword=${encodeURIComponent(keyword)}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const select = document.getElementById('monsterSelect');
+                select.innerHTML = '<option value="">-- 选择怪物 --</option>';
+                result.data.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m.index;
+                    option.textContent = `${m.name} (Lv.${m.level})`;
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            ToastManager.error('搜索怪物失败: ' + error.message);
+        });
+}
+
+// 提交添加怪物表单
+document.addEventListener('DOMContentLoaded', function() {
+    const addMonsterForm = document.getElementById('addMonsterForm');
+    if (addMonsterForm) {
+        addMonsterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(addMonsterForm);
+            formData.append('handler', 'AddMonster');
+
+            fetch('/Maps', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    ToastManager.success(result.message);
+                    addMonsterForm.reset();
+                    // 重新加载当前区域的怪物列表
+                    loadRegionMonsters();
+                } else {
+                    ToastManager.error(result.message);
+                }
+            })
+            .catch(error => {
+                ToastManager.error('添加失败: ' + error.message);
+            });
+        });
+    }
+
+    // 编辑怪物表单
+    const editMonsterForm = document.getElementById('editMonsterForm');
+    if (editMonsterForm) {
+        editMonsterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(editMonsterForm);
+
+            fetch('/Maps', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    ToastManager.success(result.message);
+                    bootstrap.Modal.getInstance(document.getElementById('editMonsterModal')).hide();
+                    // 重新加载当前区域的怪物列表
+                    loadRegionMonsters();
+                } else {
+                    ToastManager.error(result.message);
+                }
+            })
+            .catch(error => {
+                ToastManager.error('保存失败: ' + error.message);
+            });
+        });
+    }
+});
+
+// 编辑怪物
+function editMonster(respawnIndex) {
+    const row = document.querySelector(`[data-respawn-index="${respawnIndex}"]`);
+    if (!row) return;
+
+    document.getElementById('editRespawnIndex').value = respawnIndex;
+    document.getElementById('editMonsterName').value = row.cells[0].textContent.trim();
+
+    // 从行数据中提取信息
+    const delayText = row.cells[2].textContent.replace('秒', '');
+    const countText = row.cells[3].textContent;
+    const dropSetText = row.cells[4].textContent.trim();
+
+    document.getElementById('editDelay').value = delayText;
+    document.getElementById('editCount').value = countText;
+    document.getElementById('editDropSet').value = dropSetText === '-' ? '0' : dropSetText;
+
+    new bootstrap.Modal(document.getElementById('editMonsterModal')).show();
+}
+
+// 删除怪物
+function deleteMonster(respawnIndex) {
+    const row = document.querySelector(`[data-respawn-index="${respawnIndex}"]`);
+    const monsterName = row ? row.cells[0].textContent.trim() : '该怪物';
+
+    if (!confirm(`确定要删除 ${monsterName} 吗？`)) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('handler', 'DeleteMonster');
+    formData.append('respawnIndex', respawnIndex);
+
+    fetch('/Maps', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            ToastManager.success(result.message);
+            // 重新加载当前区域的怪物列表
+            loadRegionMonsters();
+        } else {
+            ToastManager.error(result.message);
+        }
+    })
+    .catch(error => {
+        ToastManager.error('删除失败: ' + error.message);
+    });
+}
+
+// HTML转义函数
+function escapeHtml(value) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, (m) => map[m]);
 }
 </script>
 }
