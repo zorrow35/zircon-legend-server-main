@@ -150,6 +150,11 @@
                                                 title="编辑属性">
                                             <i class="bi bi-pencil"></i>
                                         </button>
+                                        <button type="button" class="btn btn-outline-info"
+                                                onclick="manageDrops(@monster.Index)"
+                                                title="管理掉落">
+                                            <i class="bi bi-box-seam"></i>
+                                        </button>
                                         <button type="button" class="btn btn-outline-danger"
                                                 onclick="fillSpawnMonster(@monster.Index)"
                                                 title="召唤此怪物">
@@ -394,6 +399,180 @@
     </div>
 </div>
 
+<!-- Drop Management Modal -->
+<div class="modal fade" id="dropModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-box-seam"></i> 怪物掉落管理</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="dropMonsterIndex">
+
+                <!-- Drop Header -->
+                <div class="card mb-3">
+                    <div class="card-body py-2 bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong id="dropMonsterName">怪物名称</strong>
+                                <small class="text-muted ms-2">ID: <span id="dropMonsterId">0</span></small>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm" onclick="showAddDropForm()">
+                                <i class="bi bi-plus-lg"></i> 添加掉落
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Drop Form (hidden by default) -->
+                <div class="card mb-3" id="addDropFormCard" style="display:none;">
+                    <div class="card-header bg-success text-white">
+                        <strong><i class="bi bi-plus-circle"></i> 添加掉落</strong>
+                    </div>
+                    <div class="card-body">
+                        <form id="addDropForm" class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">掉落物品</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="addItemIndex" placeholder="物品ID" min="0">
+                                    <input type="text" class="form-control" id="addItemSearch" placeholder="搜索物品名称..." oninput="searchItems(this.value)">
+                                    <select class="form-select" id="addItemSelect" style="display:none;">
+                                        <option value="">选择物品...</option>
+                                    </select>
+                                </div>
+                                <small class="text-muted">输入物品ID或搜索物品名称</small>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">掉落几率</label>
+                                <input type="number" class="form-control" id="addChance" min="1" max="10000" value="1000">
+                                <small class="text-muted">1-10000</small>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">掉落数量</label>
+                                <input type="number" class="form-control" id="addAmount" min="1" value="1">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">掉落组</label>
+                                <input type="number" class="form-control" id="addDropSet" min="0" value="0">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button type="button" class="btn btn-primary flex-grow-1" onclick="submitAddDrop()">
+                                    <i class="bi bi-check-lg"></i> 添加
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="hideAddDropForm()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="col-md-12">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="addPartOnly">
+                                    <label class="form-check-label" for="addPartOnly">仅部分掉落</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="addEasterEvent">
+                                    <label class="form-check-label" for="addEasterEvent">复活节活动</label>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Drop List Table -->
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 80px;">物品ID</th>
+                                        <th>物品名称</th>
+                                        <th style="width: 100px;">掉落几率</th>
+                                        <th style="width: 80px;">数量</th>
+                                        <th style="width: 80px;">掉落组</th>
+                                        <th>标记</th>
+                                        <th style="width: 150px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dropsTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <i class="bi bi-inbox display-6"></i>
+                                            <p class="mb-0 mt-2">暂无掉落数据</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> 关闭
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Drop Modal -->
+<div class="modal fade" id="editDropModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 编辑掉落</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDropForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editDropIndex">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">物品</label>
+                        <input type="text" class="form-control" id="editItemName" readonly>
+                        <input type="hidden" id="editItemIndex">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">掉落几率 (1-10000)</label>
+                            <input type="number" class="form-control" id="editChance" min="1" max="10000">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">掉落数量</label>
+                            <input type="number" class="form-control" id="editAmount" min="1">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">掉落组</label>
+                        <input type="number" class="form-control" id="editDropSet" min="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editPartOnly">
+                            <label class="form-check-label" for="editPartOnly">仅部分掉落</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editEasterEvent">
+                            <label class="form-check-label" for="editEasterEvent">复活节活动</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <span class="text-muted me-auto"><i class="bi bi-exclamation-triangle"></i> 需要 SuperAdmin 权限</span>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 var isCreateMode = false;
@@ -589,5 +768,274 @@ function editMonster(monsterIndex) {
             ToastManager.error('请求失败: ' + error.message);
         });
 }
+
+// ========== 掉落管理 ==========
+
+let currentMonsterIndex = 0;
+let itemsCache = [];
+
+function manageDrops(monsterIndex) {
+    currentMonsterIndex = monsterIndex;
+    document.getElementById('dropMonsterIndex').value = monsterIndex;
+
+    // Get monster name
+    fetch(`/Monsters?handler=MonsterDetail&monsterIndex=${monsterIndex}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success && result.data) {
+                document.getElementById('dropMonsterName').textContent = result.data.monsterName;
+                document.getElementById('dropMonsterId').textContent = monsterIndex;
+                loadDrops(monsterIndex);
+                new bootstrap.Modal(document.getElementById('dropModal')).show();
+            } else {
+                ToastManager.error('加载怪物信息失败: ' + result.message);
+            }
+        })
+        .catch(error => {
+            ToastManager.error('请求失败: ' + error.message);
+        });
+}
+
+function loadDrops(monsterIndex) {
+    fetch(`/Monsters?handler=MonsterDrops&monsterIndex=${monsterIndex}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                renderDropTable(result.data);
+            } else {
+                ToastManager.error('加载掉落列表失败: ' + result.message);
+            }
+        })
+        .catch(error => {
+            ToastManager.error('请求失败: ' + error.message);
+        });
+}
+
+function renderDropTable(drops) {
+    const tbody = document.getElementById('dropsTableBody');
+    if (!drops || drops.length === 0) {
+        tbody.innerHTML = `<tr>
+            <td colspan="7" class="text-center py-4 text-muted">
+                <i class="bi bi-inbox display-6"></i>
+                <p class="mb-0 mt-2">暂无掉落数据</p>
+            </td>
+        </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = drops.map(drop => {
+        const partOnlyBadge = drop.partOnly ? '<span class="badge bg-warning text-dark me-1">部分</span>' : '';
+        const easterBadge = drop.easterEvent ? '<span class="badge bg-success me-1">复活节</span>' : '';
+        const badges = (partOnlyBadge || easterBadge) ? `<td>${partOnlyBadge}${easterBadge}</td>` : '<td>-</td>';
+
+        return `<tr data-drop-index="${drop.dropIndex}">
+            <td><code>${drop.itemIndex}</code></td>
+            <td><strong>${escapeHtml(drop.itemName)}</strong></td>
+            <td>${drop.chance}</td>
+            <td>${drop.amount}</td>
+            <td>${drop.dropSet}</td>
+            ${badges}
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-warning" onclick="editDrop(${drop.dropIndex})" title="编辑">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteDrop(${drop.dropIndex})" title="删除">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function showAddDropForm() {
+    document.getElementById('addDropFormCard').style.display = 'block';
+    document.getElementById('addItemIndex').value = '';
+    document.getElementById('addItemSearch').value = '';
+    document.getElementById('addItemSelect').style.display = 'none';
+    document.getElementById('addChance').value = '1000';
+    document.getElementById('addAmount').value = '1';
+    document.getElementById('addDropSet').value = '0';
+    document.getElementById('addPartOnly').checked = false;
+    document.getElementById('addEasterEvent').checked = false;
+}
+
+function hideAddDropForm() {
+    document.getElementById('addDropFormCard').style.display = 'none';
+}
+
+function searchItems(keyword) {
+    if (!keyword || keyword.length < 1) {
+        document.getElementById('addItemSelect').style.display = 'none';
+        return;
+    }
+
+    fetch(`/Monsters?handler=ItemsList&keyword=${encodeURIComponent(keyword)}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success && result.data && result.data.length > 0) {
+                const select = document.getElementById('addItemSelect');
+                select.innerHTML = '<option value="">选择物品...</option>' +
+                    result.data.map(item => `<option value="${item.index}">${item.index} - ${escapeHtml(item.name)} (${item.itemType})</option>`).join('');
+                select.style.display = 'block';
+            } else {
+                document.getElementById('addItemSelect').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('搜索物品失败:', error);
+        });
+}
+
+function submitAddDrop() {
+    const itemIndex = parseInt(document.getElementById('addItemIndex').value);
+    const selectedItem = document.getElementById('addItemSelect').value;
+    const finalItemIndex = selectedItem ? parseInt(selectedItem) : itemIndex;
+
+    if (!finalItemIndex || finalItemIndex <= 0) {
+        ToastManager.warning('请选择物品');
+        return;
+    }
+
+    const chance = parseInt(document.getElementById('addChance').value) || 1;
+    const amount = parseInt(document.getElementById('addAmount').value) || 1;
+    const dropSet = parseInt(document.getElementById('addDropSet').value) || 0;
+    const partOnly = document.getElementById('addPartOnly').checked;
+    const easterEvent = document.getElementById('addEasterEvent').checked;
+
+    const formData = new URLSearchParams({
+        monsterIndex: currentMonsterIndex,
+        itemIndex: finalItemIndex,
+        chance: chance,
+        amount: amount,
+        dropSet: dropSet,
+        partOnly: partOnly,
+        easterEvent: easterEvent
+    });
+
+    fetch('/Monsters?handler=AddDrop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            ToastManager.success('掉落添加成功');
+            hideAddDropForm();
+            loadDrops(currentMonsterIndex);
+        } else {
+            ToastManager.error('添加失败: ' + result.message);
+        }
+    })
+    .catch(error => {
+        ToastManager.error('请求失败: ' + error.message);
+    });
+}
+
+function editDrop(dropIndex) {
+    const tbody = document.getElementById('dropsTableBody');
+    const row = tbody.querySelector(`[data-drop-index="${dropIndex}"]`);
+    if (!row) return;
+
+    const itemIndexCell = row.querySelector('td:nth-child(1) code');
+    const itemNameCell = row.querySelector('td:nth-child(2) strong');
+    const chanceCell = row.querySelector('td:nth-child(3)');
+    const amountCell = row.querySelector('td:nth-child(4)');
+    const dropSetCell = row.querySelector('td:nth-child(5)');
+    const badgesCell = row.querySelector('td:nth-child(6)');
+
+    document.getElementById('editDropIndex').value = dropIndex;
+    document.getElementById('editItemIndex').value = parseInt(itemIndexCell.textContent);
+    document.getElementById('editItemName').value = itemNameCell.textContent;
+    document.getElementById('editChance').value = parseInt(chanceCell.textContent);
+    document.getElementById('editAmount').value = parseInt(amountCell.textContent);
+    document.getElementById('editDropSet').value = parseInt(dropSetCell.textContent);
+    document.getElementById('editPartOnly').checked = badgesCell.innerHTML.includes('部分');
+    document.getElementById('editEasterEvent').checked = badgesCell.innerHTML.includes('复活节');
+
+    new bootstrap.Modal(document.getElementById('editDropModal')).show();
+}
+
+function deleteDrop(dropIndex) {
+    if (!confirm('确定要删除此掉落吗？')) return;
+
+    const formData = new URLSearchParams({
+        dropIndex: dropIndex
+    });
+
+    fetch('/Monsters?handler=DeleteDrop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            ToastManager.success('掉落已删除');
+            loadDrops(currentMonsterIndex);
+        } else {
+            ToastManager.error('删除失败: ' + result.message);
+        }
+    })
+    .catch(error => {
+        ToastManager.error('请求失败: ' + error.message);
+    });
+}
+
+// 绑定编辑掉落表单提交
+document.addEventListener('DOMContentLoaded', function() {
+    const editDropForm = document.getElementById('editDropForm');
+    if (editDropForm) {
+        editDropForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const dropIndex = parseInt(document.getElementById('editDropIndex').value);
+            const chance = parseInt(document.getElementById('editChance').value) || 1;
+            const amount = parseInt(document.getElementById('editAmount').value) || 1;
+            const dropSet = parseInt(document.getElementById('editDropSet').value) || 0;
+            const partOnly = document.getElementById('editPartOnly').checked;
+            const easterEvent = document.getElementById('editEasterEvent').checked;
+
+            const formData = new URLSearchParams({
+                dropIndex: dropIndex,
+                chance: chance,
+                amount: amount,
+                dropSet: dropSet,
+                partOnly: partOnly,
+                easterEvent: easterEvent
+            });
+
+            fetch('/Monsters?handler=UpdateDrop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    ToastManager.success('掉落已更新');
+                    bootstrap.Modal.getInstance(document.getElementById('editDropModal')).hide();
+                    loadDrops(currentMonsterIndex);
+                } else {
+                    ToastManager.error('更新失败: ' + result.message);
+                }
+            })
+            .catch(error => {
+                ToastManager.error('请求失败: ' + error.message);
+            });
+        });
+    }
+});
 </script>
 }
