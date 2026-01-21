@@ -377,6 +377,246 @@ namespace Server.Web.Pages
             }
             return false;
         }
+
+        // ==================== 地图怪物管理功能 ====================
+
+        // 获取地图的区域列表
+        public IActionResult OnGetMapRegions(int mapIndex)
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var regions = SEnvir.MapRegionList?.Binding
+                    ?.Where(r => r.Map?.Index == mapIndex)
+                    ?.Select(r => new MapRegionViewModel
+                    {
+                        RegionIndex = r.Index,
+                        Description = r.Description ?? "",
+                        Size = r.Size
+                    })
+                    ?.OrderBy(r => r.Description)
+                    ?.ToList()
+                    ?? new List<MapRegionViewModel>();
+
+                return new JsonResult(new { success = true, data = regions });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
+        // 获取区域的怪物列表
+        public IActionResult OnGetRegionMonsters(int regionIndex)
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var region = SEnvir.MapRegionList?.Binding?.FirstOrDefault(r => r.Index == regionIndex);
+                if (region == null)
+                {
+                    return new JsonResult(new { success = false, message = "区域不存在" });
+                }
+
+                var monsters = SEnvir.RespawnInfoList?.Binding
+                    ?.Where(r => r.Region?.Index == regionIndex)
+                    ?.Select(r => new RegionMonsterViewModel
+                    {
+                        RespawnIndex = r.Index,
+                        MonsterIndex = r.Monster?.Index ?? 0,
+                        MonsterName = r.Monster?.MonsterName ?? "Unknown",
+                        MonsterLevel = r.Monster?.Level ?? 0,
+                        Delay = r.Delay,
+                        Count = r.Count,
+                        DropSet = r.DropSet,
+                        EventSpawn = r.EventSpawn,
+                        Announce = r.Announce,
+                        EasterEventChance = r.EasterEventChance
+                    })
+                    ?.OrderBy(r => r.MonsterName)
+                    ?.ToList()
+                    ?? new List<RegionMonsterViewModel>();
+
+                return new JsonResult(new { success = true, data = monsters, regionName = region.Description });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
+        // 获取怪物列表（用于选择）
+        public IActionResult OnGetMonstersList(string? keyword = "")
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var query = SEnvir.MonsterInfoList?.Binding?.AsEnumerable()
+                    ?? Enumerable.Empty<MonsterInfo>();
+
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    query = query.Where(m =>
+                        (m.MonsterName?.Contains(keyword, System.StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        m.Index.ToString().Contains(keyword));
+                }
+
+                var monsters = query.Take(100)
+                    .Select(m => new MonsterSelectOption
+                    {
+                        Index = m.Index,
+                        Name = m.MonsterName ?? "Unknown",
+                        Level = m.Level,
+                        Image = (int)m.Image
+                    })
+                    .OrderBy(m => m.Name)
+                    .ToList();
+
+                return new JsonResult(new { success = true, data = monsters });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
+        // 添加怪物到区域
+        public IActionResult OnPostAddMonster(
+            int regionIndex,
+            int monsterIndex,
+            int delay,
+            int count,
+            int dropSet,
+            bool eventSpawn,
+            bool announce,
+            int easterEventChance)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var region = SEnvir.MapRegionList?.Binding?.FirstOrDefault(r => r.Index == regionIndex);
+                if (region == null)
+                {
+                    return new JsonResult(new { success = false, message = "区域不存在" });
+                }
+
+                var monster = SEnvir.MonsterInfoList?.Binding?.FirstOrDefault(m => m.Index == monsterIndex);
+                if (monster == null)
+                {
+                    return new JsonResult(new { success = false, message = $"怪物索引 {monsterIndex} 不存在" });
+                }
+
+                var respawn = SEnvir.RespawnInfoList?.CreateNewObject();
+                if (respawn == null)
+                {
+                    return new JsonResult(new { success = false, message = "创建怪物配置失败" });
+                }
+
+                respawn.Region = region;
+                respawn.Monster = monster;
+                respawn.Delay = delay > 0 ? delay : 60;
+                respawn.Count = count > 0 ? count : 1;
+                respawn.DropSet = dropSet;
+                respawn.EventSpawn = eventSpawn;
+                respawn.Announce = announce;
+                respawn.EasterEventChance = easterEventChance;
+
+                SEnvir.Log($"[Admin] 添加怪物到区域 [{regionIndex}] {region.Description}: {count}x {monster.MonsterName} (延迟: {delay}s)");
+
+                return new JsonResult(new { success = true, message = $"已添加 {monster.MonsterName} 到区域 {region.Description}" });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"添加失败: {ex.Message}" });
+            }
+        }
+
+        // 更新怪物配置
+        public IActionResult OnPostUpdateMonster(
+            int respawnIndex,
+            int delay,
+            int count,
+            int dropSet,
+            bool eventSpawn,
+            bool announce,
+            int easterEventChance)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var respawn = SEnvir.RespawnInfoList?.Binding?.FirstOrDefault(r => r.Index == respawnIndex);
+                if (respawn == null)
+                {
+                    return new JsonResult(new { success = false, message = $"怪物配置 {respawnIndex} 不存在" });
+                }
+
+                respawn.Delay = delay > 0 ? delay : 60;
+                respawn.Count = count > 0 ? count : 1;
+                respawn.DropSet = dropSet;
+                respawn.EventSpawn = eventSpawn;
+                respawn.Announce = announce;
+                respawn.EasterEventChance = easterEventChance;
+
+                SEnvir.Log($"[Admin] 更新怪物配置 [{respawnIndex}] {respawn.Monster?.MonsterName}");
+
+                return new JsonResult(new { success = true, message = "怪物配置已更新" });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"更新失败: {ex.Message}" });
+            }
+        }
+
+        // 删除怪物配置
+        public IActionResult OnPostDeleteMonster(int respawnIndex)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var respawn = SEnvir.RespawnInfoList?.Binding?.FirstOrDefault(r => r.Index == respawnIndex);
+                if (respawn == null)
+                {
+                    return new JsonResult(new { success = false, message = $"怪物配置 {respawnIndex} 不存在" });
+                }
+
+                var monsterName = respawn.Monster?.MonsterName ?? "Unknown";
+                var regionName = respawn.Region?.Description ?? "";
+
+                respawn.Delete();
+
+                SEnvir.Log($"[Admin] 删除怪物配置 [{respawnIndex}] {monsterName} from {regionName}");
+
+                return new JsonResult(new { success = true, message = $"已删除怪物 {monsterName}" });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"删除失败: {ex.Message}" });
+            }
+        }
     }
 
     public class MapViewModel
@@ -420,5 +660,34 @@ namespace Server.Web.Pages
         public int GoldRate { get; set; }
         public int MaxGoldRate { get; set; }
         public int SkillDelay { get; set; }
+    }
+
+    public class MapRegionViewModel
+    {
+        public int RegionIndex { get; set; }
+        public string Description { get; set; } = "";
+        public int Size { get; set; }
+    }
+
+    public class RegionMonsterViewModel
+    {
+        public int RespawnIndex { get; set; }
+        public int MonsterIndex { get; set; }
+        public string MonsterName { get; set; } = "";
+        public int MonsterLevel { get; set; }
+        public int Delay { get; set; }
+        public int Count { get; set; }
+        public int DropSet { get; set; }
+        public bool EventSpawn { get; set; }
+        public bool Announce { get; set; }
+        public int EasterEventChance { get; set; }
+    }
+
+    public class MonsterSelectOption
+    {
+        public int Index { get; set; }
+        public string Name { get; set; } = "";
+        public int Level { get; set; }
+        public int Image { get; set; }
     }
 }
