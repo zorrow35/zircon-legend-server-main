@@ -627,6 +627,223 @@ namespace Server.Web.Pages
             }
         }
 
+        // 获取怪物的掉落列表
+        public IActionResult OnGetMonsterDrops(int monsterIndex)
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var monster = SEnvir.MonsterInfoList?.Binding?.FirstOrDefault(m => m.Index == monsterIndex);
+                if (monster == null)
+                {
+                    return new JsonResult(new { success = false, message = "怪物不存在" });
+                }
+
+                var drops = monster.Drops?.Select(d => new DropInfoViewModel
+                {
+                    DropIndex = d.Index,
+                    MonsterIndex = monster.Index,
+                    ItemIndex = d.Item?.Index ?? 0,
+                    ItemName = d.Item?.ItemName ?? "Unknown",
+                    Chance = d.Chance,
+                    Amount = d.Amount,
+                    DropSet = d.DropSet,
+                    PartOnly = d.PartOnly,
+                    EasterEvent = d.EasterEvent
+                }).ToList() ?? new List<DropInfoViewModel>();
+
+                return new JsonResult(new { success = true, data = drops });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
+        // 获取所有物品列表（用于下拉选择）
+        public IActionResult OnGetItemsList(string? keyword = "")
+        {
+            if (!HasPermission(AccountIdentity.Admin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足" });
+            }
+
+            try
+            {
+                var items = SEnvir.ItemInfoList?.Binding?.AsEnumerable();
+
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    items = items.Where(i =>
+                        (i.ItemName?.Contains(keyword, System.StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        i.Index.ToString().Contains(keyword));
+                }
+
+                var itemOptions = items?.OrderBy(i => i.Index).Take(100).Select(i => new ItemSelectOption
+                {
+                    Index = i.Index,
+                    Name = i.ItemName ?? "Unknown",
+                    ItemType = i.ItemType.ToString()
+                }).ToList() ?? new List<ItemSelectOption>();
+
+                return new JsonResult(new { success = true, data = itemOptions });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
+            }
+        }
+
+        // 添加掉落物品
+        public IActionResult OnPostAddDrop(int monsterIndex, int itemIndex, int chance, int amount, int dropSet, bool partOnly, bool easterEvent)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var monster = SEnvir.MonsterInfoList?.Binding?.FirstOrDefault(m => m.Index == monsterIndex);
+                if (monster == null)
+                {
+                    return new JsonResult(new { success = false, message = "怪物不存在" });
+                }
+
+                var item = SEnvir.ItemInfoList?.Binding?.FirstOrDefault(i => i.Index == itemIndex);
+                if (item == null)
+                {
+                    return new JsonResult(new { success = false, message = $"物品索引 {itemIndex} 不存在" });
+                }
+
+                var newDrop = SEnvir.DropInfoList?.CreateNewObject();
+                if (newDrop == null)
+                {
+                    return new JsonResult(new { success = false, message = "创建掉落记录失败" });
+                }
+
+                // 设置掉落属性
+                newDrop.Monster = monster;
+                newDrop.Item = item;
+                newDrop.Chance = System.Math.Max(1, System.Math.Min(10000, chance));
+                newDrop.Amount = System.Math.Max(1, amount);
+                newDrop.DropSet = dropSet;
+                newDrop.PartOnly = partOnly;
+                newDrop.EasterEvent = easterEvent;
+
+                // 添加到怪物的掉落列表
+                monster.Drops?.Add(newDrop);
+
+                SEnvir.Log($"[Admin] 添加掉落: 怪物[{monsterIndex}] {monster.MonsterName} -> 物品[{itemIndex}] {item.ItemName}, 几率={chance}");
+                
+                var dropViewModel = new DropInfoViewModel
+                {
+                    DropIndex = newDrop.Index,
+                    MonsterIndex = monster.Index,
+                    ItemIndex = item.Index,
+                    ItemName = item.ItemName ?? "",
+                    Chance = newDrop.Chance,
+                    Amount = newDrop.Amount,
+                    DropSet = newDrop.DropSet,
+                    PartOnly = newDrop.PartOnly,
+                    EasterEvent = newDrop.EasterEvent
+                };
+
+                return new JsonResult(new { success = true, message = "掉落添加成功", data = dropViewModel });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"添加失败: {ex.Message}" });
+            }
+        }
+
+        // 更新掉落
+        public IActionResult OnPostUpdateDrop(int dropIndex, int chance, int amount, int dropSet, bool partOnly, bool easterEvent)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var drop = SEnvir.DropInfoList?.Binding?.FirstOrDefault(d => d.Index == dropIndex);
+                if (drop == null)
+                {
+                    return new JsonResult(new { success = false, message = "掉落记录不存在" });
+                }
+
+                // 更新属性
+                drop.Chance = System.Math.Max(1, System.Math.Min(10000, chance));
+                drop.Amount = System.Math.Max(1, amount);
+                drop.DropSet = dropSet;
+                drop.PartOnly = partOnly;
+                drop.EasterEvent = easterEvent;
+
+                SEnvir.Log($"[Admin] 更新掉落: 掉落[{dropIndex}] 物品[{drop.Item?.Index}] {drop.Item?.ItemName}");
+                
+                var dropViewModel = new DropInfoViewModel
+                {
+                    DropIndex = drop.Index,
+                    MonsterIndex = drop.Monster?.Index ?? 0,
+                    ItemIndex = drop.Item?.Index ?? 0,
+                    ItemName = drop.Item?.ItemName ?? "",
+                    Chance = drop.Chance,
+                    Amount = drop.Amount,
+                    DropSet = drop.DropSet,
+                    PartOnly = drop.PartOnly,
+                    EasterEvent = drop.EasterEvent
+                };
+
+                return new JsonResult(new { success = true, message = "掉落已更新", data = dropViewModel });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"更新失败: {ex.Message}" });
+            }
+        }
+
+        // 删除掉落
+        public IActionResult OnPostDeleteDrop(int dropIndex)
+        {
+            if (!HasPermission(AccountIdentity.SuperAdmin))
+            {
+                return new JsonResult(new { success = false, message = "权限不足，需要 SuperAdmin 权限" });
+            }
+
+            try
+            {
+                var drop = SEnvir.DropInfoList?.Binding?.FirstOrDefault(d => d.Index == dropIndex);
+                if (drop == null)
+                {
+                    return new JsonResult(new { success = false, message = "掉落记录不存在" });
+                }
+
+                var monsterIndex = drop.Monster?.Index ?? 0;
+                var itemName = drop.Item?.ItemName ?? "";
+
+                // 从怪物的掉落列表中移除
+                if (drop.Monster?.Drops != null)
+                {
+                    drop.Monster.Drops.Remove(drop);
+                }
+
+                // 删除掉落记录
+                drop.Delete();
+
+                SEnvir.Log($"[Admin] 删除掉落: 怪物[{monsterIndex}] 掉落[{dropIndex}] 物品 {itemName}");
+                return new JsonResult(new { success = true, message = "掉落已删除" });
+            }
+            catch (System.Exception ex)
+            {
+                return new JsonResult(new { success = false, message = $"删除失败: {ex.Message}" });
+            }
+        }
+
         private bool HasPermission(AccountIdentity required)
         {
             var permissionClaim = User.FindFirst("Permission")?.Value;
@@ -683,5 +900,25 @@ namespace Server.Web.Pages
         public int MaxSC { get; set; }
         public int Accuracy { get; set; }
         public int Agility { get; set; }
+    }
+
+    public class DropInfoViewModel
+    {
+        public int DropIndex { get; set; }
+        public int MonsterIndex { get; set; }
+        public int ItemIndex { get; set; }
+        public string ItemName { get; set; } = "";
+        public int Chance { get; set; }
+        public int Amount { get; set; }
+        public int DropSet { get; set; }
+        public bool PartOnly { get; set; }
+        public bool EasterEvent { get; set; }
+    }
+
+    public class ItemSelectOption
+    {
+        public int Index { get; set; }
+        public string Name { get; set; } = "";
+        public string ItemType { get; set; } = "";
     }
 }
