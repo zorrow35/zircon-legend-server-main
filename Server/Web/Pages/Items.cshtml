@@ -171,6 +171,11 @@
                                                 title="编辑">
                                             <i class="bi bi-pencil"></i>
                                         </button>
+                                        <button type="button" class="btn btn-outline-info"
+                                                onclick="viewDropSources(@item.Index)"
+                                                title="查看掉落来源">
+                                            <i class="bi bi-box-arrow-down"></i>
+                                        </button>
                                         <button type="button" class="btn btn-outline-success"
                                                 onclick="fillGiveItem(@item.Index)"
                                                 title="给予">
@@ -560,6 +565,48 @@
     </div>
 </div>
 
+<!-- Drop Sources Modal -->
+<div class="modal fade" id="dropSourcesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="dropSourcesModalTitle"><i class="bi bi-box-arrow-down"></i> 掉落来源</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 统计信息 -->
+                <div class="alert alert-light border mb-3">
+                    <div class="d-flex gap-2 align-items-center" id="dropSourcesStats">
+                        <span class="text-muted">加载中...</span>
+                    </div>
+                </div>
+
+                <!-- 掉落来源表格 -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>掉落ID</th>
+                                <th>怪物</th>
+                                <th>掉落几率</th>
+                                <th>数量</th>
+                                <th>标记</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dropSourcesTableBody">
+                            <!-- 动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto"><i class="bi bi-info-circle"></i> 点击怪物名称可跳转到怪物管理页面</span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @functions {
     string GetRarityClass(string rarity)
     {
@@ -663,6 +710,9 @@ function buildItemRow(item) {
                     <div class="btn-group btn-group-sm">
                         <button type="button" class="btn btn-outline-primary" onclick="editItem(${item.index})" title="编辑">
                             <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="viewDropSources(${item.index})" title="查看掉落来源">
+                            <i class="bi bi-box-arrow-down"></i>
                         </button>
                         <button type="button" class="btn btn-outline-success" onclick="fillGiveItem(${item.index})" title="给予">
                             <i class="bi bi-gift"></i>
@@ -1030,5 +1080,74 @@ function removeAdvancedStat(index) {
 	        amount: amount
 	    });
 	}
-	</script>
+
+	// ==================== 掉落来源管理功能 ====================
+
+	// 查看物品的掉落来源
+	function viewDropSources(itemIndex) {
+	    // 获取物品名称
+	    const itemRow = document.querySelector(`[data-item-index="${itemIndex}"]`);
+	    if (!itemRow) return;
+	    const itemName = itemRow.querySelector('strong').textContent;
+
+	    document.getElementById('dropSourcesModalTitle').textContent = `掉落来源: ${itemName}`;
+	    document.getElementById('dropSourcesTableBody').innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mb-0 mt-2">加载中...</p></td></tr>';
+
+	    new bootstrap.Modal(document.getElementById('dropSourcesModal')).show();
+
+	    // 加载掉落来源数据
+	    fetch(`/Items?handler=ItemDropSources&itemIndex=${itemIndex}`)
+	        .then(response => response.json())
+	        .then(result => {
+	            if (result.success) {
+	                renderDropSourcesTable(result.data);
+	            } else {
+	                document.getElementById('dropSourcesTableBody').innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">${escapeHtml(result.message)}</p></td></tr>`;
+	            }
+	        })
+	        .catch(error => {
+	            document.getElementById('dropSourcesTableBody').innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle display-6"></i><p class="mb-0 mt-2">请求失败: ${escapeHtml(error.message)}</p></td></tr>`;
+	        });
 	}
+
+	// 渲染掉落来源表格
+	function renderDropSourcesTable(sources) {
+	    const tbody = document.getElementById('dropSourcesTableBody');
+
+	    if (!sources || sources.length === 0) {
+	        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-inbox display-6"></i><p class="mb-0 mt-2">该物品没有掉落来源</p></td></tr>';
+	        return;
+	    }
+
+	    tbody.innerHTML = sources.map(source => {
+	        const chancePercent = source.chance > 0 ? (source.chance / 10000).toFixed(2) + '%' : '0%';
+	        const dropSetBadge = source.dropSet > 0 ? `<span class="badge bg-secondary">组${source.dropSet}</span>` : '';
+	        const partOnlyBadge = source.partOnly ? '<span class="badge bg-warning text-dark">部件</span>' : '';
+	        const easterEventBadge = source.easterEvent ? '<span class="badge bg-success">活动</span>' : '';
+
+	        return `<tr>
+	                <td><code>${source.dropIndex}</code></td>
+	                <td>
+	                    <a href="/Monsters" class="text-decoration-none" onclick="localStorage.setItem('highlightMonster', '${source.monsterIndex}')">
+	                        ${escapeHtml(source.monsterName)}
+	                    </a>
+	                    <small class="text-muted d-block">Lv.${source.monsterLevel}</small>
+	                </td>
+	                <td>
+	                    <span class="badge ${chancePercent !== '0%' ? 'bg-success' : 'bg-secondary'}">${chancePercent}</span>
+	                </td>
+	                <td>${source.amount}</td>
+	                <td>${dropSetBadge} ${partOnlyBadge} ${easterEventBadge}</td>
+	            </tr>`;
+	    }).join('');
+
+	    // 更新统计信息
+	    const totalCount = sources.length;
+	    const avgChance = sources.reduce((sum, s) => sum + s.chance, 0) / totalCount / 100;
+	    document.getElementById('dropSourcesStats').innerHTML = `
+	        <span class="badge bg-primary">共 ${totalCount} 个怪物</span>
+	        <span class="badge bg-info text-dark">平均几率: ${avgChance.toFixed(2)}%</span>
+	    `;
+	}
+	</script>
+}
